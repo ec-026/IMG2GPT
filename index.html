@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>GPT-3 Chatbot with OCR</title>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@2/dist/tesseract.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jquery.terminal/js/jquery.terminal.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jquery.terminal/css/jquery.terminal.min.css" />
+    <style>
+ body {
+  background-color: #36393f;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 16px;
+}
+
+#container {
+  margin: 50px auto;
+  max-width: 800px;
+  background-color: #40444b;
+  padding: 20px;
+  border-radius: 5px;
+  box-shadow: 0px 0px 10px 0px rgba(0, 0, 0, 0.2);
+}
+
+h1 {
+  color: #fff;
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+#file-upload {
+  margin-bottom: 20px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
+#upload-btn {
+  padding: 8px 20px;
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+#upload-btn:hover {
+  background-color: #3e8e41;
+}
+
+#file-name {
+  margin: 0;
+  color: #fff;
+}
+
+#send-button {
+  padding: 8px 20px;
+  background-color: #7289da;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+  margin-left: 10px;
+}
+
+#send-button:hover {
+  background-color: #677bc4;
+}
+
+#loading {
+  font-size: 10px;
+  color: #fff;
+  display: none;
+  margin: 0px;
+  padding: 0px;
+  text-align: center;
+}
+
+#terminal {
+  border: 1px solid #ccc;
+  height: 400px;
+  padding: 10px;
+  overflow-y: scroll;
+}
+.cmd, .cmd div, .cmd span[data-text]:not(.cmd-inverted):not(.token):not(.emoji), .terminal, .terminal-output > :not(.raw) a, .terminal-output > :not(.raw) div, .terminal-output > :not(.raw) span[data-text]:not(.token):not(.inverted):not(.terminal-inverted):not(.cmd-inverted):not(.terminal-error):not(.emoji), .terminal.external [data-text] {
+  color: #4CAF50;
+}
+#bar {
+  margin: 0px;
+  margin-top: 15px;
+  padding: 0px;
+  min-height: 10px;
+}
+
+.jqterm {
+  background-color: #fff;
+  color: #00FF00; /* green */
+}
+    </style>
+    
+  </head>
+
+  <body onpaste="onPaste(event)">
+    <div id="container">
+      <h1>GPT-3 Terminal with OCR</h1>
+      <div id="file-upload">
+        <input type="file" id="file-input" accept="image/*" style="display:none" />
+        <button id="upload-btn" onclick="document.getElementById('file-input').click()">Browse</button>
+        <p id="file-name"></p>
+        <button id="send-button">Upload</button>
+      </div>
+      <div id="terminal"></div>
+      <div id="bar"><div id="loading">Processing image...</div></div>
+    </div>
+    <script>
+      const inputElement = document.querySelector('input[type="file"]');
+const fileNameElement = document.querySelector('#file-name');
+
+inputElement.addEventListener('change', (event) => {
+  const selectedFile = event.target.files[0];
+  fileNameElement.textContent = selectedFile.name;
+});
+      $("#terminal").terminal(
+        async function (command, terminal) {
+          try {
+            const prompt = `you are a helpful, knowledge sharing chatbot. I say: ${command}. You reply without giving explanation if problem related to coding give c++ code, if not related to coding give only answer. for example: in case of mcq give only write option :`;
+            const response = await fetch(`https://api.openai.com/v1/completions`, {
+              body: JSON.stringify({
+                model: "text-davinci-003",
+                prompt: prompt,
+                temperature: 0.86,
+                max_tokens: 1048,
+              }),
+              method: "POST",
+              headers: {
+                "content-type": "application/json",
+                Authorization: "Bearer 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",
+              },
+            }).then((response) => {
+              if (response.ok) {
+                response.json().then((json) => {
+                  terminal.echo(json.choices[0].text.trim());
+                });
+              }
+            });
+            $("#loading").hide();
+            console.log("Completed!");
+          } catch (err) {
+            console.error(`Error: ${err}`);
+          }
+        },
+        {
+          greetings: "GPT-3 Chatbot with OCR v0.1",
+          name: "gpt3_demo",
+          height: 400,
+          width: 800,
+          prompt: "> ",
+        }
+      );
+
+      async function onFileChange() {
+        const file = document.getElementById("file-input").files[0];
+        if (file) {
+          $("#loading").show();
+          $("#loading").text("Converting image to text...");
+          const reader = new FileReader();
+          reader.onload = async function () {
+            const img = new Image();
+            img.onload = async function () {
+              const { data: { text } } = await Tesseract.recognize(img);
+              $("#loading").text("Getting AI Response...");
+              $("#terminal").terminal().exec(text);
+            };
+            img.src = reader.result;
+          };
+          reader.readAsDataURL(file);
+        }
+      }
+      
+async function onPaste(e) {
+  const items = e.clipboardData.items;
+  let blob = null;
+  for (let i = 0; i < items.length; i++) {
+    if (items[i].type.indexOf("image") === 0) {
+      blob = items[i].getAsFile();
+    }
+  }
+  if (blob !== null) {
+    $("#loading").show();
+    $("#loading").text("Converting image to text...");
+    const reader = new FileReader();
+    reader.onload = async function () {
+      const img = new Image();
+      img.onload = async function () {
+        const { data: { text } } = await Tesseract.recognize(img);
+        $("#loading").text("Getting AI Response...");
+        $("#terminal").terminal().exec(text);
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(blob);
+  }
+}
+
+const sendButton = document.getElementById("send-button");
+  sendButton.addEventListener("click", () => {
+    onFileChange();
+  });
+    </script>
+  </body>
+</html>
